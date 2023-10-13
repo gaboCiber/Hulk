@@ -13,7 +13,7 @@ namespace Hulk
 
                 string input = Console.ReadLine()!;
 
-                LexicalAnalyzer tokens = new LexicalAnalyzer(input);
+                Lexer tokens = new Lexer(input);
 
                 if (tokens.IsThereAnyLexicalError)
                 {
@@ -24,7 +24,7 @@ namespace Hulk
                 if (tokens.GetTokens().Count == 0)
                     continue;
 
-                SyntaticAnalyzer result = new SyntaticAnalyzer(tokens.GetTokens());
+                Parser result = new Parser(tokens.GetTokens());
 
                 if (result.IsThereAnyError)
                 {

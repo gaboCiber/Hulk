@@ -107,7 +107,7 @@ namespace Hulk.src
             foreach (var item in parameters)
             {
                 item.AddLast(new EndOfLineToken());
-                SyntaticAnalyzer result = new SyntaticAnalyzer(item.ToList());
+                Parser result = new Parser(item.ToList());
 
                 if (result.IsThereAnyError)
                 {
@@ -137,7 +137,7 @@ namespace Hulk.src
             if(NumberOfParameters(identifier) > 0)
                 GetValues(bodyCopy.First);
 
-            SyntaticAnalyzer result = new SyntaticAnalyzer(bodyCopy.ToList());
+            Parser result = new Parser(bodyCopy.ToList());
 
             if (result.IsThereAnyError)
             {
@@ -243,7 +243,7 @@ namespace Hulk.src
             foreach (var item in paramsList)
             {
                 item.AddLast(new EndOfLineToken());
-                SyntaticAnalyzer result = new SyntaticAnalyzer(item.ToList());
+                Parser result = new Parser(item.ToList());
 
                 if (result.IsThereAnyError)
                 {

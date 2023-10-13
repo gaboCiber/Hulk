@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Hulk.src
 {
-    public class LexicalAnalyzer
+    public class Lexer
     {
         List<char> SpecialCharacters = new List<char>(new char[] { ';', '=', '@' });
         List<char> SeparatorCharacters = new List<char>(new char[] { '(', ')', ',' });
@@ -17,7 +17,7 @@ namespace Hulk.src
         List<TokenInterface> TokenList;
         List<CompilingError> ErrorList;
 
-        public LexicalAnalyzer(string input)
+        public Lexer(string input)
         {
             TokenList = new List<TokenInterface>();
             ErrorList = new List<CompilingError>();

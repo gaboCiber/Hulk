@@ -7,9 +7,9 @@ using Hulk.src;
 
 namespace Hulk.src
 {
-    public class SyntaticAnalyzer
+    public class Parser
     {
-        #region Campos
+        #region Fields 
 
         private LinkedList<TokenInterface> TokensLinkedList;
 
@@ -21,7 +21,7 @@ namespace Hulk.src
 
         #endregion
 
-        #region Propiedades
+        #region Properties
         public TokenInterface? Output { private set; get; }
 
         public bool IsThereAnyError { get { return ErrorList.Count != 0; } private set { } }
@@ -30,7 +30,7 @@ namespace Hulk.src
 
         #region Constructor
 
-        public SyntaticAnalyzer(List<TokenInterface> tokensList)
+        public Parser(List<TokenInterface> tokensList)
         {
             // Inicializar los campos y las propiedades
             TokensLinkedList = new LinkedList<TokenInterface>(tokensList);
@@ -47,9 +47,10 @@ namespace Hulk.src
 
         #endregion
 
+        #region Metodos auxiliares
         public List<CompilingError> GetErrors() => ErrorList;
 
-        private void AddErrorToList(ErrorType type ,string argument)
+        private void AddErrorToList(ErrorType type, string argument)
         {
             IsThereAnyError = true;
             ErrorList.Add(new CompilingError(type, argument));
@@ -70,11 +71,12 @@ namespace Hulk.src
 
             return null;
         }
+        #endregion
 
-        // ----------------------------------------------------------------------------------------------------------- //
-
+        #region Checking and Evaluation Methods
         private void CheckAndEvaluate()
         {
+
             if (!CheckSyntaxAndSemantic())
                 return;
 
@@ -107,7 +109,7 @@ namespace Hulk.src
 
             if (IsThereAnyError)
                 return false;
-         
+
             return true;
 
             void CheckEndOfLineToken()
@@ -126,7 +128,7 @@ namespace Hulk.src
                         return;
                     else
                     {
-                        AddErrorToList(ErrorType.Syntax ,"Missing close parenthesis `)`");
+                        AddErrorToList(ErrorType.Syntax, "Missing close parenthesis `)`");
                         return;
                     }
                 }
@@ -160,11 +162,11 @@ namespace Hulk.src
                 if (currentToken.Value is NumberToken or StringToken or BooleanToken
                     && currentToken.Next!.Value is NumberToken or StringToken or BooleanToken)
                 {
-                    AddErrorToList(ErrorType.Semantic , $"Missing operator between `{currentToken.Value.GetTokenValueAsString()}` and `{currentToken.Next.Value.GetTokenValueAsString()}`");
+                    AddErrorToList(ErrorType.Semantic, $"Missing operator between `{currentToken.Value.GetTokenValueAsString()}` and `{currentToken.Next.Value.GetTokenValueAsString()}`");
                 }
 
                 CheckTypes(currentToken.Next!);
-            }       
+            }
         }
 
         private int CheckInlineFunctionDeclaration(LinkedListNode<TokenInterface>? currentToken)
@@ -320,12 +322,19 @@ namespace Hulk.src
                     }
 
                     string variableName = currentToken.Value.GetTokenValueAsString();
+
+                    if (InlineFunctionClass.ExistFunction(variableName) || BuiltInFunctionClass.IsBuilInFunction(variableName))
+                    {
+                        AddErrorToList(ErrorType.Semantic, $"The identifier `{variableName}` is already in used to a function");
+                        return false;
+                    }
+
                     LetInColletion.AddVariableNameToLastLet(variableName);
                     Update();
 
                     if (!(currentToken.Value is SpecialOperatorToken && currentToken.Value.GetTokenValueAsString() == "="))
                     {
-                        AddErrorToList(ErrorType.Syntax ,$"Expected token `=` after identifier `{currentToken.Previous!.Value.GetTokenValueAsString()}`");
+                        AddErrorToList(ErrorType.Syntax, $"Expected token `=` after identifier `{currentToken.Previous!.Value.GetTokenValueAsString()}`");
                         return false;
                     }
 
@@ -404,9 +413,9 @@ namespace Hulk.src
 
                     tokens.Add(new EndOfLineToken());
 
-                    SyntaticAnalyzer result = new SyntaticAnalyzer(tokens)!;
+                    Parser result = new Parser(tokens)!;
 
-                    if(result.IsThereAnyError)
+                    if (result.IsThereAnyError)
                     {
                         output = null;
                         ErrorList.AddRange(result.GetErrors());
@@ -735,7 +744,7 @@ namespace Hulk.src
 
                     if (!(currentToken.Value is SeparatorToken && currentToken.Value.GetTokenValueAsString() == "("))
                     {
-                        AddErrorToList(ErrorType.Syntax, $"Missing token `(` after identifier `{currentToken.Previous.Value.GetTokenValueAsString()}`");
+                        AddErrorToList(ErrorType.Syntax, $"Missing token `(` after identifier `{id}`");
                         return false;
                     }
 
@@ -817,11 +826,11 @@ namespace Hulk.src
                         }
 
                         TokenInterface? output;
-                        if(!InlineFunctionClass.EvaluateFunction(id, ErrorList, out output))
+                        if (!InlineFunctionClass.EvaluateFunction(id, ErrorList, out output))
                         {
                             return false;
                         }
-                        
+
                         TokensLinkedList.AddBefore(currentToken, output);
                         InlineFunctionClass.RemoveParameterValues(id);
                     }
@@ -1030,28 +1039,28 @@ namespace Hulk.src
                             break;
                     }
 
-                    if ( (operador.Previous is not null && operador.Previous.Value is not SystemToken) && (operador.Next is not null && operador.Next.Value is not SystemToken) && 
+                    if ((operador.Previous is not null && operador.Previous.Value is not SystemToken) && (operador.Next is not null && operador.Next.Value is not SystemToken) &&
                         operador.Previous!.Value.GetType().Name != operador.Next!.Value.GetType().Name)
                     {
                         AddErrorToList(ErrorType.Semantic, $"Operator `{operador.Value.GetTokenValueAsString()}` cannot be used between different types");
                         return false;
                     }
 
-                    if (operador.Previous is null || operador.Previous.Value is not NumberToken )
+                    if (operador.Previous is null || operador.Previous.Value is not NumberToken)
                     {
-                        if(operador.Value.GetTokenValueAsString() == "-" && (operador.Next is not null && operador.Next.Value is NumberToken))
+                        if (operador.Value.GetTokenValueAsString() == "-" && (operador.Next is not null && operador.Next.Value is NumberToken))
                         {
                             TokensLinkedList.AddBefore(operador, new NumberToken(0));
                             return true;
                         }
 
-                        AddErrorToList(ErrorType.Semantic ,$"Missing number expression on the left of operator `{operador.Value.GetTokenValueAsString()}`");
+                        AddErrorToList(ErrorType.Semantic, $"Missing number expression on the left of operator `{operador.Value.GetTokenValueAsString()}`");
                         return false;
                     }
 
                     if (operador.Next is null || operador.Next.Value is not NumberToken)
                     {
-                        AddErrorToList(ErrorType.Semantic ,$"Missing number expression on the right of operator `{operador.Value.GetTokenValueAsString()}`");
+                        AddErrorToList(ErrorType.Semantic, $"Missing number expression on the right of operator `{operador.Value.GetTokenValueAsString()}`");
                         return false;
                     }
 
@@ -1095,7 +1104,7 @@ namespace Hulk.src
 
         private void FinalCheck()
         {
-            if(TokensLinkedList.ToList().TrueForAll( i => i is EndOfLineToken))
+            if (TokensLinkedList.ToList().TrueForAll(i => i is EndOfLineToken))
             {
                 Output = null;
                 return;
@@ -1109,7 +1118,8 @@ namespace Hulk.src
             }
 
             Output = TokensLinkedList.First!.Value;
-        }
+        } 
+        #endregion
     }
 }
 
