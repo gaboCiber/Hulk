@@ -32,69 +32,65 @@ namespace Hulk.src
 
         public List<CompilingError> GetErrors() => ErrorList;
 
-        private void AddLexicalErrorToList(string argument)
+        private void AddLexicalErrorToList(int column, string argument)
         {
-            ErrorList.Add(new CompilingError(ErrorType.Lexical, argument));
+            ErrorList.Add(new CompilingError(ErrorType.Lexical, column, argument));
         }
 
         private void CreateTokens(string input)
         {
             StringBuilder preToken = new StringBuilder();
 
-            for (int i = 0; i < input.Length; i++)
+            for (int i = 0, col = 1; i < input.Length; i++, col=i+1)
             {
                 if (SeparatorCharacters.Contains(input[i]))
                 {
-                    TokenList.Add(new SeparatorToken(input[i].ToString()));
+                    TokenList.Add(new SeparatorToken(col, input[i].ToString()));
                 }
                 else if (ArithmeticOperatorCharacters.Contains(input[i]))
                 {
-                    if (i + 1 != input.Length && input[i] == '=' && input[i + 1] == '>')
-                    {
-                        TokenList.Add(new OperatorToken("=>"));
-                        i++;
-                    }
-                    else
-                        TokenList.Add(new ArithmeticOperatorToken(input[i].ToString()));
+                    TokenList.Add(new ArithmeticOperatorToken(col, input[i].ToString()));
                 }
                 else if (LogicOperatorsCharacters.Contains(input[i]))
                 {
                     if (input[i] == '&' || input[i] == '|')
-                        TokenList.Add(new LogicBooleanOperatorToken(input[i].ToString()));
+                        TokenList.Add(new LogicBooleanOperatorToken(col, input[i].ToString()));
                     else if (input[i] == '!' && (i == input.Length || input[i + 1] != '='))
-                        TokenList.Add(new LogicBooleanOperatorToken(input[i].ToString()));
+                        TokenList.Add(new LogicBooleanOperatorToken(col, input[i].ToString()));
                     else if (i + 1 != input.Length && input[i + 1] == '=')
                     {
-                        TokenList.Add(new LogicArimeticOperatorToken(input[i].ToString() + "="));
+                        TokenList.Add(new LogicArimeticOperatorToken(col, input[i].ToString() + "="));
                         i++;
                     }
                     else
-                        TokenList.Add(new LogicArimeticOperatorToken(input[i].ToString()));
+                        TokenList.Add(new LogicArimeticOperatorToken(col, input[i].ToString()));
                 }
                 else if (SpecialCharacters.Contains(input[i]))
                 {
                     if (input[i] == ';')
-                        TokenList.Add(new EndOfLineToken());
+                        TokenList.Add(new EndOfLineToken(col));
                     else if (input[i] == '@')
-                        TokenList.Add(new SpecialOperatorToken("@"));
+                        TokenList.Add(new SpecialOperatorToken(col, "@"));
                     else if (input[i] == '=')
                     {
                         if (i + 1 != input.Length && input[i + 1] == '=')
                         {
-                            TokenList.Add(new LogicArimeticOperatorToken("=="));
+                            TokenList.Add(new LogicArimeticOperatorToken(col, "=="));
                             i++;
                         }
                         else if (i + 1 != input.Length && input[i + 1] == '>')
                         {
-                            TokenList.Add(new SpecialOperatorToken("=>"));
+                            TokenList.Add(new SpecialOperatorToken(col, "=>"));
                             i++;
                         }
                         else
-                            TokenList.Add(new SpecialOperatorToken("="));
+                            TokenList.Add(new SpecialOperatorToken(col, "="));
                     }
                 }
                 else if (char.IsDigit(input[i]))
                 {
+                    int firstCharCol = col;
+
                     if (TokenList.Count >= 1)
                     {
                         if (TokenList[TokenList.Count - 1] is ArithmeticOperatorToken && ((ArithmeticOperatorToken)TokenList[TokenList.Count - 1]).TokenValue == "-")
@@ -119,15 +115,16 @@ namespace Hulk.src
 
                     double number;
                     if (double.TryParse(preToken.ToString(), out number))
-                        TokenList.Add(new NumberToken(number));
+                        TokenList.Add(new NumberToken(firstCharCol, number));
                     else
-                        AddLexicalErrorToList($"Invalid token `{preToken}`");
+                        AddLexicalErrorToList(firstCharCol, $"Invalid token `{preToken}`");
 
                     preToken.Clear();
                     i--;
                 }
                 else if (input[i] == '"')
                 {
+                    int firstCharCol = col;
                     preToken.Append(input[i]);
                     i++;
 
@@ -172,9 +169,9 @@ namespace Hulk.src
                     }
 
                     if (preToken[preToken.Length - 1] != '\"')
-                        AddLexicalErrorToList($"Invalid token {preToken}. Expected double-quotes `\"`");
+                        AddLexicalErrorToList(firstCharCol, $"Invalid token {preToken}. Expected double-quotes `\"`");
                     else
-                        TokenList.Add(new StringToken(preToken.ToString()));
+                        TokenList.Add(new StringToken(firstCharCol, preToken.ToString()));
 
                     preToken.Clear();
 
@@ -185,7 +182,9 @@ namespace Hulk.src
                 }
                 else
                 {
+                    int firstCharCol = col;
                     bool invalidToken = false;
+
                     while (i != input.Length && input[i] != ' ')
                     {
                         if (SeparatorCharacters.Contains(input[i]) || ArithmeticOperatorCharacters.Contains(input[i]) || LogicOperatorsCharacters.Contains(input[i]) || SpecialCharacters.Contains(input[i]))
@@ -201,17 +200,17 @@ namespace Hulk.src
                     string preTokenSTR = preToken.ToString();
 
                     if (invalidToken)
-                        AddLexicalErrorToList($"Invalid token {preTokenSTR}");
+                        AddLexicalErrorToList(firstCharCol, $"Invalid token {preTokenSTR}");
                     else if (KeywordCharacters.Contains(preToken.ToString()))
-                        TokenList.Add(new KeywordToken(preTokenSTR));
+                        TokenList.Add(new KeywordToken(firstCharCol,preTokenSTR));
                     else if (preTokenSTR == "true" || preTokenSTR == "false")
-                        TokenList.Add(new BooleanToken(bool.Parse(preTokenSTR)));
+                        TokenList.Add(new BooleanToken(firstCharCol ,bool.Parse(preTokenSTR)));
                     else if (preTokenSTR == "PI")
-                        TokenList.Add(new NumberToken(Math.PI));
+                        TokenList.Add(new NumberToken(firstCharCol, Math.PI));
                     else if (preTokenSTR == "E")
-                        TokenList.Add(new NumberToken(Math.E));
+                        TokenList.Add(new NumberToken(firstCharCol, Math.E));
                     else
-                        TokenList.Add(new IdentifierToken(preTokenSTR));
+                        TokenList.Add(new IdentifierToken(firstCharCol, preTokenSTR));
 
                     preToken.Clear();
                     i--;

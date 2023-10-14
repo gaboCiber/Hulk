@@ -106,7 +106,7 @@ namespace Hulk.src
             int index = 0;
             foreach (var item in parameters)
             {
-                item.AddLast(new EndOfLineToken());
+                item.AddLast(new EndOfLineToken(item.Last!.Value.GetColumn() + item.Last.Value.GetTokenValueAsString().Length));
                 Parser result = new Parser(item.ToList());
 
                 if (result.IsThereAnyError)
@@ -204,22 +204,22 @@ namespace Hulk.src
             }
         }
 
-        public static TokenInterface EvaluateFunction(string id)
+        public static TokenInterface EvaluateFunction(int col, string id)
         {                 
             switch (Enum.Parse<Function>(id))
             {
                 case Function.sqrt:
-                    return new NumberToken(Math.Sqrt(((NumberToken)EvaluatedParamsList[0]).TokenValue));
+                    return new NumberToken(col, Math.Sqrt(((NumberToken)EvaluatedParamsList[0]).TokenValue));
                 case Function.sin:
-                    return new NumberToken(Math.Sin(((NumberToken)EvaluatedParamsList[0]).TokenValue));
+                    return new NumberToken(col, Math.Sin(((NumberToken)EvaluatedParamsList[0]).TokenValue));
                 case Function.cos:
-                    return new NumberToken(Math.Cos(((NumberToken)EvaluatedParamsList[0]).TokenValue));
+                    return new NumberToken(col, Math.Cos(((NumberToken)EvaluatedParamsList[0]).TokenValue));
                 case Function.exp:
-                    return new NumberToken(Math.Exp(((NumberToken)EvaluatedParamsList[0]).TokenValue));
+                    return new NumberToken(col,Math.Exp(((NumberToken)EvaluatedParamsList[0]).TokenValue));
                 case Function.log:
-                    return new NumberToken(Math.Log( ((NumberToken)EvaluatedParamsList[1]).TokenValue, ((NumberToken)EvaluatedParamsList[0]).TokenValue));
+                    return new NumberToken(col, Math.Log( ((NumberToken)EvaluatedParamsList[1]).TokenValue, ((NumberToken)EvaluatedParamsList[0]).TokenValue));
                 case Function.rand:
-                    return new NumberToken(new Random().NextDouble());
+                    return new NumberToken(col,new Random().NextDouble());
                 case Function.print:
                     if(EvaluatedParamsList[0] is EndOfLineToken)
                         Console.WriteLine();
@@ -228,9 +228,9 @@ namespace Hulk.src
                     return EvaluatedParamsList[0];
                 case Function.exit:
                     Environment.Exit(0);
-                    return new NumberToken(double.NaN);
+                    return null;
                 default:
-                    return new NumberToken(double.NaN);
+                    return null;
             }
         }
 
@@ -242,7 +242,7 @@ namespace Hulk.src
 
             foreach (var item in paramsList)
             {
-                item.AddLast(new EndOfLineToken());
+                item.AddLast(new EndOfLineToken(item.Last!.Value.GetColumn() + item.Last.Value.GetTokenValueAsString().Length));
                 Parser result = new Parser(item.ToList());
 
                 if (result.IsThereAnyError)

@@ -14,15 +14,28 @@ namespace Hulk.src
 
         public string? Argument { get; private set; }
 
-        public CompilingError(ErrorType type, string argument)
+        public int Column { get; private set; }
+
+        public CompilingError(ErrorType type, int column , string argument)
         {
             Type = type;
             Argument = argument;
+            Column = column;
         }
 
         public override string ToString()
         {
-            return $"! {this.Type.ToString().ToUpper()} ERROR: {this.Argument}";
+            StringBuilder error = new StringBuilder();
+            error.Append($"! {this.Type.ToString().ToUpper()} ERROR ");
+
+            if (Column > -1)
+                error.Append($"(Col {this.Column}) : ");
+            else
+                error.Append(": ");
+            
+            error.Append(this.Argument);
+
+            return error.ToString();
         }
 
     }
