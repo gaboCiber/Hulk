@@ -121,7 +121,7 @@ namespace Hulk.src
                     if (double.TryParse(preToken.ToString(), out number))
                         TokenList.Add(new NumberToken(number));
                     else
-                        AddLexicalErrorToList($"Invalid token {number}");
+                        AddLexicalErrorToList($"Invalid token `{preToken}`");
 
                     preToken.Clear();
                     i--;
@@ -191,7 +191,7 @@ namespace Hulk.src
                         if (SeparatorCharacters.Contains(input[i]) || ArithmeticOperatorCharacters.Contains(input[i]) || LogicOperatorsCharacters.Contains(input[i]) || SpecialCharacters.Contains(input[i]))
                             break;
 
-                        if (!char.IsLetter(input[i]))
+                        if (!char.IsLetterOrDigit(input[i] ))
                             invalidToken = true;
 
                         preToken.Append(input[i]);

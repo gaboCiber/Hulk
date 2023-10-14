@@ -17,7 +17,9 @@ namespace Hulk
 
                 if (tokens.IsThereAnyLexicalError)
                 {
+                    Console.ForegroundColor = ConsoleColor.Red;
                     tokens.GetErrors().ForEach(i => Console.WriteLine(i));
+                    Console.ForegroundColor = ConsoleColor.White;
                     continue;
                 }
 
@@ -28,12 +30,19 @@ namespace Hulk
 
                 if (result.IsThereAnyError)
                 {
+                    Console.ForegroundColor = ConsoleColor.Red;
                     result.GetErrors().ForEach(i => Console.WriteLine(i));
+                    Console.ForegroundColor = ConsoleColor.White;
                     continue;
                 }
 
                 if(result.Output is not null)
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
                     Console.WriteLine(result.Output);
+                    Console.ForegroundColor = ConsoleColor.White;
+                }
+                    
             }
         }
     }

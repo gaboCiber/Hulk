@@ -47,7 +47,7 @@ namespace Hulk.src
 
         #endregion
 
-        #region Metodos auxiliares
+        #region Auxiliar Metodos 
         public List<CompilingError> GetErrors() => ErrorList;
 
         private void AddErrorToList(ErrorType type, string argument)
@@ -285,7 +285,8 @@ namespace Hulk.src
                     return false;
             }
 
-            if (currentToken.Value is IdentifierToken && LetInColletion.ConstainsVariable(currentToken.Value.GetTokenValueAsString()))
+            if (currentToken.Value is IdentifierToken && LetInColletion.ConstainsVariable(currentToken.Value.GetTokenValueAsString())
+                && currentToken.Next!.Value.GetTokenValueAsString() != "(")
             {
                 TokensLinkedList.AddAfter(currentToken, LetInColletion.PeekLastValue(currentToken.Value.GetTokenValueAsString()));
                 currentToken = currentToken.Next;
@@ -309,6 +310,7 @@ namespace Hulk.src
             bool CheckLetInExpression(LinkedListNode<TokenInterface>? currentToken, out LinkedListNode<TokenInterface>? actualToken)
             {
                 actualToken = null;
+                string variableName;
 
                 do
                 {
@@ -321,20 +323,13 @@ namespace Hulk.src
                         return false;
                     }
 
-                    string variableName = currentToken.Value.GetTokenValueAsString();
-
-                    if (InlineFunctionClass.ExistFunction(variableName) || BuiltInFunctionClass.IsBuilInFunction(variableName))
-                    {
-                        AddErrorToList(ErrorType.Semantic, $"The identifier `{variableName}` is already in used to a function");
-                        return false;
-                    }
-
+                    variableName = currentToken.Value.GetTokenValueAsString();
                     LetInColletion.AddVariableNameToLastLet(variableName);
                     Update();
 
                     if (!(currentToken.Value is SpecialOperatorToken && currentToken.Value.GetTokenValueAsString() == "="))
                     {
-                        AddErrorToList(ErrorType.Syntax, $"Expected token `=` after identifier `{currentToken.Previous!.Value.GetTokenValueAsString()}`");
+                        AddErrorToList(ErrorType.Syntax, $"Expected token `=` after identifier `{variableName}`");
                         return false;
                     }
 
@@ -355,7 +350,7 @@ namespace Hulk.src
 
                 if (!(currentToken.Value is KeywordToken && currentToken.Value.GetTokenValueAsString() == "in"))
                 {
-                    AddErrorToList(ErrorType.Syntax, $"Expected token `=` after identifier `{currentToken.Previous!.Value.GetTokenValueAsString()}`");
+                    AddErrorToList(ErrorType.Syntax, $"Expected token `=` after identifier `{variableName}`");
                     return false;
                 }
 
@@ -446,7 +441,7 @@ namespace Hulk.src
                         AddErrorToList(ErrorType.Syntax, "Missing the else part of an `if` expression");
                         return false;
                     case 2.5:
-                        currentIf.Value[3, 1] = currentToken.Previous!;
+                        currentIf.Value[3, 1] = currentToken;
                         currentIf.Value[0, 1] = currentToken;
 
                         if (sourceIf is null)
@@ -531,7 +526,7 @@ namespace Hulk.src
                 switch (currentToken.Value.GetTokenValueAsString())
                 {
                     case "else":
-                        currentIf!.Value[3, 1] = currentToken.Previous!;
+                        currentIf!.Value[3, 1] = currentToken;
                         currentIf.Value[0, 1] = currentToken;
                         currentIf = sourceIf;
                         actualIfPart = 1.5;
@@ -551,7 +546,7 @@ namespace Hulk.src
 
                         if (TokensLinkedList.ToList().IndexOf(openParenthesis.Value) < TokensLinkedList.ToList().IndexOf(currentIf.Value[0, 0].Value))
                         {
-                            currentIf.Value[3, 1] = currentToken.Previous!;
+                            currentIf.Value[3, 1] = currentToken;
                             currentIf.Value[0, 1] = currentToken;
 
                             if (sourceIf is not null && sourceIf.Value[0, 1] is null)
@@ -755,9 +750,9 @@ namespace Hulk.src
                     int maxParams = (builtInFunction) ? BuiltInFunctionClass.NumberOfParameters(id) : InlineFunctionClass.NumberOfParameters(id);
                     LinkedList<TokenInterface>[]? paramsList;
 
-                    if (maxParams == 0 && currentToken != closeParenthesis)
+                    if ( (maxParams == 0 && currentToken != closeParenthesis) || (maxParams != 0 && currentToken == closeParenthesis))
                     {
-                        AddErrorToList(ErrorType.Semantic, $"Invalid number of parameters in function `{id}`. `{id}` does not take any parameter");
+                        AddErrorToList(ErrorType.Semantic, $"Invalid number of parameters in function `{id}`. `{id}` must takes `{maxParams}` parameter(s)");
                         return false;
                     }
 
@@ -794,7 +789,7 @@ namespace Hulk.src
 
                         if (index != maxParams - 1)
                         {
-                            AddErrorToList(ErrorType.Semantic, $"Invalid number of parameters in function `{id}`. `{id}` only takes {maxParams} parameter(s)");
+                            AddErrorToList(ErrorType.Semantic, $"Invalid number of parameters in function `{id}`. `{id}` must takes {maxParams} parameter(s)");
                             return false;
                         }
 
