@@ -671,17 +671,17 @@ namespace Hulk.src
                     {
                         if (ifToken[0, 0] == currentToken)
                         {
-                            if (!ExpressionEvaluator(ifToken[1, 0], ifToken[1, 1]))
+                            if (!ExpressionEvaluator(ifToken[1, 0].Next, ifToken[1, 1].Previous))
                                 return false;
 
-                            if (ifToken[0, 0].Next!.Value is not BooleanToken)
+                            if (ifToken[1, 0].Next!.Value is not BooleanToken)
                             {
                                 AddErrorToList(ErrorType.Semantic, ifToken[0, 0].Next!.Value.GetColumn(), "The expression to evaluate in the `if-else` expression is not a boolean type");
                                 return false;
                             }
 
                             LinkedListNode<TokenInterface>? ifResult;
-                            if (((BooleanToken)ifToken[0, 0].Next!.Value).TokenValue)
+                            if (((BooleanToken)ifToken[1, 0].Next!.Value).TokenValue)
                             {
                                 if (!ExpressionEvaluator(ifToken[2, 0], ifToken[2, 1]))
                                     return false;
@@ -720,6 +720,14 @@ namespace Hulk.src
                     {
                         return false;
                     }
+                }
+
+                if(currentToken.Value is NumberToken or StringToken or BooleanToken && 
+                    ((currentToken.Previous is not null && currentToken.Previous.Value is NumberToken or StringToken or BooleanToken) ||
+                    (currentToken.Next is not null && currentToken.Next.Value is NumberToken or StringToken or BooleanToken)))
+                {
+                    AddErrorToList(ErrorType.Semantic, currentToken.Value.GetColumn(), $"Missing operator");
+                    return false;
                 }
 
                 return FillOperatorsStack(currentToken.Next!, finalToken!);
