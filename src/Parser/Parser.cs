@@ -22,8 +22,9 @@ namespace Hulk.src
         #endregion
 
         #region Properties
-        public TokenInterface? Output { private set; get; }
 
+        public TokenInterface? Output { private set; get; }
+        
         public bool IsThereAnyError { get { return ErrorList.Count != 0; } private set { } }
 
         #endregion
@@ -32,7 +33,7 @@ namespace Hulk.src
 
         public Parser(List<TokenInterface> tokensList)
         {
-            // Inicializar los campos y las propiedades
+            // Inicializar los campos
             TokensLinkedList = new LinkedList<TokenInterface>(tokensList);
             ErrorList = new List<CompilingError>();
 
@@ -41,6 +42,7 @@ namespace Hulk.src
 
             LetInColletion = new LetInClass();
 
+            // Evualar el input
             CheckAndEvaluate();
 
         }
@@ -48,19 +50,23 @@ namespace Hulk.src
         #endregion
 
         #region Auxiliar Metodos 
+        
+        // Metodo que devuelve la lista de errores
         public List<CompilingError> GetErrors() => ErrorList;
 
+        // Metodo para añadir un error a la lista
         private void AddErrorToList(ErrorType type, int column, string argument)
         {
-            IsThereAnyError = true;
             ErrorList.Add(new CompilingError(type, column, argument));
         }
 
+        // Metodo para buscar el index de un nodo especifico dentro de la Lista enlazable
         private int SearchNumber(LinkedListNode<TokenInterface> token)
         {
             return (token is null) ? -1 : TokensLinkedList.ToList().IndexOf(token.Value);
         }
 
+        // Metodo para buscar el partentesis de apertura dado su correspondiente parentesis de cierre
         private LinkedListNode<TokenInterface>? SearchOpenParentesis(LinkedListNode<TokenInterface> closeParenthesis)
         {
             foreach (var item in ParenthesisDictionary)
@@ -74,56 +80,77 @@ namespace Hulk.src
         #endregion
 
         #region Checking and Evaluation Methods
+
+        // Metodo principal de comprobacion y evaluacion
         private void CheckAndEvaluate()
         {
-
+            // Comprobar preliminarmete la sintaxis y la semantica de los tokens
             if (!CheckSyntaxAndSemantic())
                 return;
 
+            // Comprobar si una funcion fue declarada correctamente
             switch (CheckInlineFunctionDeclaration(TokensLinkedList.First!))
             {
+                /* Devuelve:
+                   * 1 si la funcion fue declarada correctamente
+                   * 0 si el input no es una declaracion de funciones
+                   * -1 si existe algun error en la declaracion de funciones */
                 case -1 or 1:
                     return;
                 default:
                     break;
             }
 
+            // Comprueba si una expresion `let-in` fue declarada correctamente. Y despues la evalua
             if (!CheckAndEvaluateLetInExpression(TokensLinkedList.First!))
                 return;
 
+            // Comprueba si una expresion `if-else` esta declarada correctamente
             if (!CheckIfElseExpression(TokensLinkedList.First!, 0, null, null))
                 return;
 
+            // Evaluar la expresion
             if (!ExpressionEvaluator(TokensLinkedList.First!, TokensLinkedList.Last!))
                 return;
 
+            // Comprobar la expresion evaluada
             FinalCheck();
 
         }
 
+        // Comprobar preliminarmete la sintaxis y la semantica de los tokens
         private bool CheckSyntaxAndSemantic()
         {
+            // Comprobar que token EOL se encuentre en la expresion como el ultimo token
             CheckEndOfLineToken();
+
+            // Comprobar si los parentesis estan balanceados
             CheckParenthesis(new Stack<LinkedListNode<TokenInterface>>(), TokensLinkedList.First!);
-            CheckTypes(TokensLinkedList.First!);
+            
+            // Comprobar preliminarmente operadores perdidos entre tokens
+            CheckMissingOperators(TokensLinkedList.First!);
 
             if (IsThereAnyError)
                 return false;
 
             return true;
 
+            #region Funciones locales
+
             void CheckEndOfLineToken()
             {
                 if (TokensLinkedList.Last() is not EndOfLineToken)
                 {
-                    AddErrorToList(ErrorType.Syntax, -1,$"Expected token `;` at the end of the line");
+                    AddErrorToList(ErrorType.Syntax, TokensLinkedList.Last().GetColumn(), $"Expected token `;` ");
                 }
             }
 
             void CheckParenthesis(Stack<LinkedListNode<TokenInterface>> OpenParentesisStack, LinkedListNode<TokenInterface> currentToken)
             {
+                // Salir del metodo
                 if (currentToken is null) // The current token supposed to be is ";"
                 {
+                    // Comprobar si existe aun algun parentesis dentro de la pila
                     if (OpenParentesisStack.Count == 0)
                         return;
                     else
@@ -133,14 +160,17 @@ namespace Hulk.src
                     }
                 }
 
+                // Comprobar si currentToken es un parentesis de apertura y adicionarlo a la pila
                 if (currentToken.Value.GetTokenValueAsString() == "(")
                 {
                     OpenParentesisStack.Push(currentToken);
                 }
+                // / Comprobar si currentToken es un parentesis de cierre
                 else if (currentToken.Value.GetTokenValueAsString() == ")")
                 {
+                    // Comprobar que en la pila haya algun parentesis de apertura
                     LinkedListNode<TokenInterface> start;
-                    if (OpenParentesisStack.TryPop(out start))
+                    if (OpenParentesisStack.TryPop(out start!))
                     {
                         ParenthesisDictionary.Add(start, currentToken);
                     }
@@ -151,31 +181,40 @@ namespace Hulk.src
                     }
                 }
 
-                CheckParenthesis(OpenParentesisStack, currentToken.Next);
+                CheckParenthesis(OpenParentesisStack, currentToken.Next!);
             }
 
-            void CheckTypes(LinkedListNode<TokenInterface> currentToken)
+            void CheckMissingOperators(LinkedListNode<TokenInterface> currentToken)
             {
-                if (currentToken.Next is null) // The current token supposed to be is ";"
+                // Salir del metodo
+                if (currentToken.Next is null)
                     return;
 
+                // Comprobar si exite un operado que falta
                 if (currentToken.Value is NumberToken or StringToken or BooleanToken
                     && currentToken.Next!.Value is NumberToken or StringToken or BooleanToken)
                 {
-                    AddErrorToList(ErrorType.Semantic, currentToken.Value.GetColumn() , $"Missing operator between `{currentToken.Value.GetTokenValueAsString()}` and `{currentToken.Next.Value.GetTokenValueAsString()}`");
+                    AddErrorToList(ErrorType.Semantic, currentToken.Value.GetColumn(), $"Missing operator between `{currentToken.Value.GetTokenValueAsString()}` and `{currentToken.Next.Value.GetTokenValueAsString()}`");
                 }
 
-                CheckTypes(currentToken.Next!);
+                CheckMissingOperators(currentToken.Next!);
             }
+            #endregion
+
+
         }
 
+        // Comprobar si una funcion fue declarada correctamente
         private int CheckInlineFunctionDeclaration(LinkedListNode<TokenInterface>? currentToken)
         {
+            // Salir del metodo
             if (currentToken!.Value is EndOfLineToken)
                 return 0;
 
+            // Entrar en el comprobador:
             if (currentToken.Value is KeywordToken && currentToken.Value.GetTokenValueAsString() == "function")
             {
+                // Comprobar que la palabra clave `function` sea el 1er token
                 if (currentToken != TokensLinkedList.First)
                 {
                     AddErrorToList(ErrorType.Semantic, currentToken.Value.GetColumn(), "Function declaration must be a sigle and only line");
@@ -184,14 +223,16 @@ namespace Hulk.src
 
                 currentToken = currentToken.Next;
 
+                // Comprobar el identificador
                 if (currentToken!.Value is not IdentifierToken)
                 {
                     AddErrorToList(ErrorType.Syntax, currentToken.Value.GetColumn(), $"Expected an identifier type token after `{currentToken.Previous!.Value.GetTokenValueAsString()}`");
                     return -1;
                 }
                 
+                // Guardar el nombre de la funcion y comprobar si ya exite una funcion llamada del mismo mod
                 string functionName = currentToken.Value.GetTokenValueAsString();
-                if (InlineFunctionClass.ExistFunction(functionName))
+                if (InlineFunctionClass.ExistFunction(functionName) || BuiltInFunctionClass.IsBuilInFunction(functionName))
                 {
                     AddErrorToList(ErrorType.Semantic, currentToken.Value.GetColumn(), $"The function `{functionName}` already exists");
                     return -1;
@@ -199,52 +240,78 @@ namespace Hulk.src
 
                 currentToken = currentToken.Next;
 
+                // Comrpobar que el proximo token sea un parentesis de apertura
                 if (!(currentToken!.Value is SeparatorToken && currentToken.Value.GetTokenValueAsString() == "("))
                 {
                     AddErrorToList(ErrorType.Syntax, currentToken.Value.GetColumn(), $"Expected token `(` after identifier `{currentToken.Previous!.Value.GetTokenValueAsString()}`");
                     return -1;
                 }
 
+                // Crear la lista de parametros
                 List<string>? param;
 
+                // Funcion sin parametros
                 if (currentToken.Next!.Value is SeparatorToken && currentToken.Next.Value.GetTokenValueAsString() == ")") /// Function without any parameters
                 {
                     param = null;
                     currentToken = currentToken.Next!;
                 }
-                else // Function with parameters
+                // Funcion con parametros
+                else
                 {
+                    // Obtener los parametros
                     param = new List<string>();
                     do
                     {
-                        currentToken = currentToken.Next;
+                        currentToken = currentToken!.Next;
 
+                        // Comprobar si el token siguiente es un identificador
                         if (currentToken!.Value is not IdentifierToken)
                         {
                             AddErrorToList(ErrorType.Syntax, currentToken.Value.GetColumn(), $"Expected an identifier type token after `{currentToken.Previous!.Value.GetTokenValueAsString()}`");
                             return -1;
                         }
 
+                        // Añadir el parametro a la lista
                         param.Add(currentToken.Value.GetTokenValueAsString());
                         currentToken = currentToken.Next;
 
-                    } while (currentToken!.Value is SeparatorToken && currentToken.Value.GetTokenValueAsString() == ",");
+                        // Comprobar que el proximo token sea ',' para multiples parametros
+                        if(currentToken!.Value is SeparatorToken && currentToken.Value.GetTokenValueAsString() == ",")
+                        {
+                            continue;
+                        }
 
-                    if (!(currentToken.Value is SeparatorToken && currentToken.Value.GetTokenValueAsString() == ")"))
-                    {
-                        AddErrorToList(ErrorType.Syntax, currentToken.Value.GetColumn(), $"Expected token `)` after identifier `{currentToken.Previous!.Value.GetTokenValueAsString()}`");
-                        return -1;
-                    }
+                        // Comprobar si el token es `)` para salir del bucle
+                        else if (currentToken.Value is SeparatorToken && currentToken.Value.GetTokenValueAsString() == ")")
+                            break;
+
+                        // En caso contrario hay un error en la declaracion de la funcion
+                        else
+                        {
+                            AddErrorToList(ErrorType.Syntax, currentToken.Value.GetColumn(), $"Expected token `)` or `,` after identifier `{currentToken.Previous!.Value.GetTokenValueAsString()}`");
+                            return -1;
+                        }
+                    } while (true);
                 }
 
                 currentToken = currentToken.Next;
 
+                // Comprobar que el token sea el operado de funcion 
                 if (!(currentToken!.Value is SpecialOperatorToken && currentToken.Value.GetTokenValueAsString() == "=>"))
                 {
                     AddErrorToList(ErrorType.Syntax, currentToken.Value.GetColumn(), $"Expected token `=>` after token `)`");
                     return -1;
                 }
 
+                // Comprobar que el cuerpo no este conformado solo por el token EOL
+                if(currentToken.Next!.Value is EndOfLineToken)
+                {
+                    AddErrorToList(ErrorType.Syntax, currentToken.Value.GetColumn(), $"Missing the body expression of the function `{functionName}` after token `=>`");
+                    return -1;
+                }
+                
+                // Añadir los token que falta una lista, los cuales van a componer el cuerpo de la funcion
                 LinkedList<TokenInterface> body = new LinkedList<TokenInterface>();
                 do
                 {
@@ -253,7 +320,7 @@ namespace Hulk.src
 
                 } while (currentToken.Value is not EndOfLineToken);
 
-
+                // Añadir el nombre de la funcion, loss parametros y el cuerpo a la clase InlineFuction
                 InlineFunctionClass.AddFunction(functionName);
                 InlineFunctionClass.AddParametersNameToLastFunction(param);
                 InlineFunctionClass.AddBodyToLastFunction(body);
@@ -405,6 +472,20 @@ namespace Hulk.src
                         // TODO Implementar let sin parentisis
 
                     } while (tokenValue != "," && tokenValue != ";");
+
+                    if(tokens.Count == 0)
+                    {
+                        AddErrorToList(ErrorType.Syntax, currentToken.Value.GetColumn(), $"Expected expression after token '='");
+                        output = null;
+                        return false;
+                    }
+
+                    if(currentToken.Value.GetTokenValueAsString() == ";")
+                    {
+                        AddErrorToList(ErrorType.Syntax, currentToken.Value.GetColumn(), $"Missing token 'in' in `let-in` expression");
+                        output = null;
+                        return false;
+                    }
 
                     tokens.Add(new EndOfLineToken(tokens.Last().GetTokenValueAsString().Length + tokens.Last().GetColumn()));
 
@@ -641,6 +722,12 @@ namespace Hulk.src
 
                 else if (currentToken.Value is SeparatorToken && currentToken.Value.GetTokenValueAsString() == "(")
                 {
+                    if (currentToken.Next.Value.GetTokenValueAsString() == ")")
+                    {
+                        AddErrorToList(ErrorType.Syntax, currentToken.Value.GetColumn(), $"Expected expression inside the parethensis");
+                        return false;
+                    }
+                    
                     if (TokensLinkedList.ToList().IndexOf(ParenthesisDictionary[currentToken].Value) > TokensLinkedList.ToList().IndexOf(finalToken.Value))
                     {
                         AddErrorToList(ErrorType.Semantic, currentToken.Value.GetColumn(), $" The close parenthesis `)` is outside the limits of evaluation");

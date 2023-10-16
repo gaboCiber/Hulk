@@ -248,7 +248,7 @@ namespace Hulk.src
 
                     // Evaluar si es un token invalido
                     if (invalidToken) 
-                        AddLexicalErrorToList(col, $"Invalid token {preTokenSTR}");
+                        AddLexicalErrorToList(col, $"Invalid token `{preTokenSTR}`");
 
                     // Evaluar si el token es una palabra clave: "if", "then", "else", "let", "in", "function"
                     else if (KeywordCharacters.Contains(preToken.ToString()))

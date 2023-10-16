@@ -221,10 +221,14 @@ namespace Hulk.src
                 case Function.rand:
                     return new NumberToken(col,new Random().NextDouble());
                 case Function.print:
-                    if(EvaluatedParamsList[0] is EndOfLineToken)
+                    if (EvaluatedParamsList[0] is EndOfLineToken)
                         Console.WriteLine();
-                    else 
+                    else
+                    {
+                        Console.ForegroundColor = ConsoleColor.Magenta;
                         Console.WriteLine(EvaluatedParamsList[0].GetTokenValueAsString());
+                        Console.ForegroundColor = ConsoleColor.White;
+                    }
                     return EvaluatedParamsList[0];
                 case Function.exit:
                     Environment.Exit(0);
