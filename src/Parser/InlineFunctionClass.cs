@@ -226,7 +226,12 @@ namespace Hulk.src
                     else
                     {
                         Console.ForegroundColor = ConsoleColor.Magenta;
-                        Console.WriteLine(EvaluatedParamsList[0].GetTokenValueAsString());
+
+                        if(EvaluatedParamsList[0] is StringToken)
+                            Console.WriteLine(((StringToken)EvaluatedParamsList[0]).StringValue);
+                        else
+                            Console.WriteLine(EvaluatedParamsList[0].GetTokenValueAsString());
+
                         Console.ForegroundColor = ConsoleColor.White;
                     }
                     return EvaluatedParamsList[0];
@@ -234,7 +239,7 @@ namespace Hulk.src
                     Environment.Exit(0);
                     return null;
                 default:
-                    return null;
+                    return null!;
             }
         }
 

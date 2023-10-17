@@ -49,7 +49,7 @@ namespace Hulk.src
 
         #endregion
 
-        #region Auxiliar Metodos 
+        #region Metodos auxiliares 
         
         // Metodo que devuelve la lista de errores
         public List<CompilingError> GetErrors() => ErrorList;
@@ -77,6 +77,7 @@ namespace Hulk.src
 
             return null;
         }
+
         #endregion
 
         #region Checking and Evaluation Methods
@@ -331,10 +332,14 @@ namespace Hulk.src
             return CheckInlineFunctionDeclaration(currentToken.Next);
         }
 
+        // Comprueba si una expresion `let-in` fue declarada correctamente. Y despues la evalua
         private bool CheckAndEvaluateLetInExpression(LinkedListNode<TokenInterface>? currentToken)
         {
+            // Salir de la comprobracion
             if (currentToken!.Value is EndOfLineToken)
             {
+                // Comprobar que no halla quedado ninguna expresion `let-in` en la pila de la clase Let.
+                // En caso afirmativo removerlos y dejar la pila vacia.
                 while (LetInColletion.PeekLastLet() is not null)
                 {
                     TokensLinkedList.Remove(LetInColletion.PeekLastLet()!);
@@ -344,14 +349,20 @@ namespace Hulk.src
                 return true;
             }
 
+            // Comprobar que el token sea `let` e iniciar la comprobacion lexica de una expresion `let-in`
             if (currentToken.Value is KeywordToken && currentToken.Value.GetTokenValueAsString() == "let")
             {
+                // Añadir el un nuevo `let` a la clase
                 LetInColletion.AddLet(currentToken);
 
+                // Comprobar el lexico de la declaracion 
                 if (!CheckLetInExpression(currentToken.Next!, out currentToken!))
                     return false;
+
+                // En caso que no haya ocurrido ningun error, continuar con la evaluacion de la expresion `let-in`
             }
 
+            // Comprobar que el token sea una variable declarada en el let y no una funcion
             if (currentToken.Value is IdentifierToken && LetInColletion.ConstainsVariable(currentToken.Value.GetTokenValueAsString())
                 && currentToken.Next!.Value.GetTokenValueAsString() != "(")
             {
@@ -360,49 +371,60 @@ namespace Hulk.src
                 TokensLinkedList.Remove(currentToken!.Previous!);
             }
 
+            // Comprobar si el token actual es `)`
             if (currentToken.Value.GetTokenValueAsString() == ")")
             {
+                // Comprobar si el parentesis que lo abrio se encuentra antes de la declaracion de la expresion `let-in`
                 if (SearchNumber(SearchOpenParentesis(currentToken)!) < SearchNumber(LetInColletion.PeekLastLet()!))
                 {
                     TokensLinkedList.Remove(LetInColletion.PeekLastLet()!);
                     LetInColletion.RemoveLastLet();
-
-                    //if(LetInColletion.PeekLastLet() is null)
-                    // return true;
                 }
             }
 
+            // Continuar evaluando y comprobando hasta el final de la instruccion (EOL)
             return CheckAndEvaluateLetInExpression(currentToken.Next);
 
+            #region Funcion local
+
+            // Comprobar el lexico de la declaracion de una expresion `let-in`
             bool CheckLetInExpression(LinkedListNode<TokenInterface>? currentToken, out LinkedListNode<TokenInterface>? actualToken)
             {
+                // Variable que guardara al final del metodo el token por donde se quedo la evaluacion 
                 actualToken = null;
+                
+                // Varaible que guardadara el nombre de las variables declaradas en el let
                 string variableName;
 
+                // Comprobar el lexico
                 do
-                {
-                    if (currentToken!.Value.GetTokenValueAsString() == ",")
-                        Update();
-
+                {                  
+                    // Comprobar si el token es un identificador
                     if (currentToken.Value is not IdentifierToken)
                     {
                         AddErrorToList(ErrorType.Syntax, currentToken.Value.GetColumn(), $"Expected an identifier type token");
                         return false;
                     }
 
+                    // Guardar el nombre del identificador, añadirlo el nombre la clase LetInColletion y actualizar
                     variableName = currentToken.Value.GetTokenValueAsString();
                     LetInColletion.AddVariableNameToLastLet(variableName);
                     Update();
 
+                    // Comprobar que el token sea `=`
                     if (!(currentToken.Value is SpecialOperatorToken && currentToken.Value.GetTokenValueAsString() == "="))
                     {
                         AddErrorToList(ErrorType.Syntax, currentToken.Value.GetColumn(), $"Expected token `=` after identifier `{variableName}`");
                         return false;
                     }
 
+                    // Actualizar
                     Update();
 
+                    // Crear una variable que guardara el resultado de la evaluacion de la expresion asociada con la variable
                     TokenInterface? output;
+
+                    // Si la evaluacion de la expresion asociada a la variable da falso, entonces ocurrio un error durandte la evaluacion
                     if (EvaluateLetVariable(out output))
                     {
                         LetInColletion.AddVariableValue(variableName, new LinkedListNode<TokenInterface>(output));
@@ -412,8 +434,13 @@ namespace Hulk.src
                         return false;
                     }
 
+                    // Continuar la comprobacion si se encuentra un token de tipo `,` y actualizar, sino salir del bucle
+                    if (currentToken!.Value.GetTokenValueAsString() == ",")
+                        Update();
+                    else
+                        break;
 
-                } while (currentToken.Value is SeparatorToken && currentToken.Value.GetTokenValueAsString() == ",");
+                } while (true);
 
                 if (!(currentToken.Value is KeywordToken && currentToken.Value.GetTokenValueAsString() == "in"))
                 {
@@ -425,6 +452,9 @@ namespace Hulk.src
                 actualToken = currentToken;
                 return true;
 
+                #region SubFunciones Locales
+
+                // Actulizar el valor del nodo actual y elemininarlo
                 void Update()
                 {
                     currentToken = currentToken.Next!;
@@ -432,26 +462,37 @@ namespace Hulk.src
 
                 }
 
+                // Evaluar la expresion asociada a una variable
                 bool EvaluateLetVariable(out TokenInterface output)
                 {
+                    // Crear una lista de tokens que guardaran la expresion asociada a la variable, la cual luego sera parseada
                     List<TokenInterface> tokens = new List<TokenInterface>();
+                    
                     string tokenValue;
+
+                    // Crear una variable para llevar la cuenta de cuantos posibles `let` anidados se encuentran dentro de la expresion
                     int letCount = 0;
 
+                    // Iterar por la lista enlazable
                     do
                     {
+                        // Combrobar si el token actual sea `in`
                         if (currentToken.Value is KeywordToken && currentToken.Value.GetTokenValueAsString() == "in")
                         {
+                            // Comprobar cuandos `let` anidados quedan
                             if (letCount == 0)
                                 break;
                             else
                                 letCount--;
                         }
 
+                        // Adicionar a la lista el token actual
                         tokens.Add(currentToken.Value);
 
+                        // Comprobar si el token es `(`
                         if (currentToken.Value is SeparatorToken && currentToken.Value.GetTokenValueAsString() == "(")
                         {
+                            // Directamente adicionar a la lista todos los tokens hasta el correspondiente `)`
                             LinkedListNode<TokenInterface> closeParenthesis = ParenthesisDictionary[currentToken];
                             do
                             {
@@ -461,56 +502,76 @@ namespace Hulk.src
                             } while (currentToken != closeParenthesis);
                         }
 
+                        // Comrobar que el token actual sea `let` y aumentar el contador
                         else if (currentToken.Value is KeywordToken && currentToken.Value.GetTokenValueAsString() == "let")
                         {
                             letCount++;
                         }
 
+                        // Actualizar
                         Update();
                         tokenValue = currentToken.Value.GetTokenValueAsString();
 
-                        // TODO Implementar let sin parentisis
-
                     } while (tokenValue != "," && tokenValue != ";");
 
-                    if(tokens.Count == 0)
+                    // Comprobar que la lista no esta vacia
+                    if (tokens.Count == 0)
                     {
                         AddErrorToList(ErrorType.Syntax, currentToken.Value.GetColumn(), $"Expected expression after token '='");
-                        output = null;
+                        output = null!;
                         return false;
                     }
 
-                    if(currentToken.Value.GetTokenValueAsString() == ";")
+                    // Comprobar que el token actual no se EOL
+                    if (currentToken.Value.GetTokenValueAsString() == ";")
                     {
                         AddErrorToList(ErrorType.Syntax, currentToken.Value.GetColumn(), $"Missing token 'in' in `let-in` expression");
-                        output = null;
+                        output = null!;
                         return false;
                     }
 
+                    // Adicionar a la lista de la expresion asociada a la variable `let` un token EOL
                     tokens.Add(new EndOfLineToken(tokens.Last().GetTokenValueAsString().Length + tokens.Last().GetColumn()));
 
+                    // Parsear la lista 
                     Parser result = new Parser(tokens)!;
 
+                    // Comprobar que no haya ningun error
                     if (result.IsThereAnyError)
                     {
+                        // En caso que haya algun error, adicionarlos a la lista de errores de este objeto
                         output = null;
                         ErrorList.AddRange(result.GetErrors());
                         return false;
                     }
 
+                    // Devolver el rultado de la exprsion parseada
                     output = result.Output!;
                     return true;
 
-                }
+                } 
+
+                #endregion
             }
 
+            #endregion
         }
 
+        // Comprueba si una expresion `if-else` esta declarada correctamente
         private bool CheckIfElseExpression(LinkedListNode<TokenInterface>? currentToken, double actualIfPart, LinkedListNode<LinkedListNode<TokenInterface>[,]>? currentIf, LinkedListNode<LinkedListNode<TokenInterface>[,]>? sourceIf)
         {
+            // TODO Crear una nueva estructura o clase para el if
 
+            // Comprobar el si el token sea EOL
             if (currentToken!.Value is EndOfLineToken)
             {
+                /* Comprobar por que parte del if se encuentra:
+                    * 0: no se declaro ningun if
+                    * 1: solo se encrontro la parte de evaluacion del if, es decir las que esta entre parentesis
+                    * 1.5: falta la parte `else` del if
+                    * 2: se encontro el identificador `else` pero ninguna expresion a la que evaluar
+                    * 2.5: la expresion `if-else` esta declarada correctamente
+                */
                 switch (actualIfPart)
                 {
                     case 0:
@@ -522,9 +583,12 @@ namespace Hulk.src
                         AddErrorToList(ErrorType.Syntax, currentToken.Value.GetColumn(),"Missing the `else` part of an `if` expression");
                         return false;
                     case 2.5:
+
+                        // Adionar a la matriz los valores faltantes y que concluyen la declaracion de la expresion `if-else`
                         currentIf.Value[3, 1] = currentToken;
                         currentIf.Value[0, 1] = currentToken;
 
+                        // Combropar si no hay un `if` padre del actual `if`
                         if (sourceIf is null)
                             return true;
                         else
@@ -534,54 +598,73 @@ namespace Hulk.src
                 }
             }
 
+            // Comprobar si el token sea `if` y comenzar la comprobacion de la declaracion
             if (currentToken.Value.GetTokenValueAsString() == "if")
             {
+                // Comprobar si el nuevo `if` se encuentra anidado dentro de otro `if`
                 if (currentIf is not null)
                 {
+                    // Comrpobar por que parte se quedo el `if` padre
+
+                    // Comprobar si el nuevo `if` esta anidado dentro de la evaluacion de los parentesis del `if` padre
                     if (currentIf.Value[1, 1] is not null)
                     {
+                        // En caso contrario ver en que parte se encuentra, si en el `body` o en el `else`
+                        // En ambos casos adiocionar el `if` como inicio del body o del else si todavio no han inciado
                         if (currentIf.Value[2, 0] is null && actualIfPart == 1)
                             currentIf.Value[2, 0] = currentToken;
                         else if (currentIf.Value[3, 0] is null && actualIfPart == 2)
                             currentIf.Value[3, 0] = currentToken;
 
                     }
+
+                    // Asignar al padre del nuevo `if`
                     sourceIf = currentIf;
                 }
 
-
+                // Adionar a la lista el nuevo `if` 
                 IfElseLinkedList.AddLast(new LinkedListNode<LinkedListNode<TokenInterface>[,]>(new LinkedListNode<TokenInterface>[4, 2]));
+                
+                // Establecer el `if` como actual
                 currentIf = IfElseLinkedList.Last!;
 
-                // The start if the if
+                // Establecer el inicio del `if`
                 currentIf!.Value[0, 0] = currentToken;
 
-                // The expresion to evaluate
+                //Actualizar el token y comprobar que sea un parentesis de apertura
                 currentToken = currentToken.Next;
-
                 if (currentToken!.Value.GetTokenValueAsString() != "(")
                 {
                     AddErrorToList(ErrorType.Syntax, currentToken.Value.GetColumn(), "Missing open parenthesis `(` after `if`");
                     return false;
                 }
 
+                // Establecer el token de incio de la expresion boolenana a evaluar
                 currentIf.Value[1, 0] = currentToken;
 
+                // Seguir la comprobacion hasta encontrar el correspondiente parentesis de cierre.
                 return CheckIfElseExpression(currentToken.Next, 0.5, currentIf, sourceIf);
             }
 
+            // Comrpobar si token actual es el parentesis de cierre correspondiente inicio de la expresion booleana 
             if (actualIfPart == 0.5 && ParenthesisDictionary[currentIf.Value[1, 0]] == currentToken)
             {
+                // Asignar el token de cierre de la expresion boolena
                 currentIf.Value[1, 1] = currentToken;
+
+                // Seguir con la comprobacion hasta encontrar un else
                 return CheckIfElseExpression(currentToken.Next, 1, currentIf, sourceIf);
             }
 
+            // Comprobar el primer token despues del parentesis de cierre
             if (actualIfPart == 1)
             {
+                // Si el token actual es `else` entonces la expresion `if-else` esta declarada incorrectamente
                 if (currentToken.Value.GetTokenValueAsString() == "else")
                 {
                     return CheckIfElseExpression(TokensLinkedList.Last, actualIfPart, currentIf, sourceIf);
                 }
+                // Sino se asigna el token de inicio del `if`
                 else
                 {
                     currentIf.Value[2, 0] = currentToken;
@@ -1198,7 +1281,7 @@ namespace Hulk.src
 
         private void FinalCheck()
         {
-            if (TokensLinkedList.ToList().TrueForAll(i => i is EndOfLineToken))
+            if(TokensLinkedList.Count == 1 && TokensLinkedList.Last!.Value is EndOfLineToken)
             {
                 Output = null;
                 return;
@@ -1206,7 +1289,7 @@ namespace Hulk.src
 
             if (TokensLinkedList.Count > 2 || (TokensLinkedList.First!.Value is SystemToken))
             {
-                AddErrorToList(ErrorType.Semantic, -1 ,"The input expession cannot be correctly evaluated");
+                 AddErrorToList(ErrorType.Semantic, -1 ,"The input expession cannot be correctly evaluated");
                 Output = null;
                 return;
             }

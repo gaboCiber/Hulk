@@ -5,6 +5,8 @@ namespace Hulk.src
     public class Lexer
     {
 
+        #region Fields, Constructor and Properties
+        
         // Lista de caracteres y palabras
         List<char> SpecialCharacters = new List<char>(new char[] { ';', '=', '@' });
         List<char> SeparatorCharacters = new List<char>(new char[] { '(', ')', ',' });
@@ -19,21 +21,19 @@ namespace Hulk.src
         List<CompilingError> ErrorList;
 
         // Constructor
-        public Lexer(string input)
+        public Lexer()
         {
             // Inicializar los campos 
             TokenList = new List<TokenInterface>();
             ErrorList = new List<CompilingError>();
-            CreateTokens(input);
-
-            // TODO Implementar multiples comandos en una misma linea
         }
 
         // Propiedad que evalua si se encontraron errores lexicos en el input
         public bool IsThereAnyLexicalError { get => ErrorList.Count != 0; }
 
-        // Metodo que devuelve la lista de Tokens 
-        public List<TokenInterface> GetTokens() => TokenList;
+        #endregion
+
+        #region Metodos
 
         // Metodo que devuelve los errores lexicos
         public List<CompilingError> GetErrors() => ErrorList;
@@ -43,23 +43,24 @@ namespace Hulk.src
         {
             ErrorList.Add(new CompilingError(ErrorType.Lexical, column, argument));
         }
-        
+
         // Metodo que convierte el texto de input en una lista de tokens
-        private void CreateTokens(string input)
+
+        public IEnumerable<List<TokenInterface>> CreateTokens(string input)
         {
             // Crear una variable para guardar un posible tokens
             StringBuilder preToken = new StringBuilder();
 
             // Iterar por el input
-            for (int i = 0, col = 1; i < input.Length; i++, col=i+1)
+            for (int i = 0, col = 1; i < input.Length; i++, col = i + 1)
             {
                 // Evaluar el caracter y si es posible añadirlo a las lista de tokens
-                if (SeparatorCharacters.Contains(input[i])) 
+                if (SeparatorCharacters.Contains(input[i]))
                 {
                     // Tokens: '(', ')', ','
                     TokenList.Add(new SeparatorToken(col, input[i].ToString()));
                 }
-                else if (ArithmeticOperatorCharacters.Contains(input[i])) 
+                else if (ArithmeticOperatorCharacters.Contains(input[i]))
                 {
                     // Tokens: '+', '-', '*', '/', '%', '^'
                     TokenList.Add(new ArithmeticOperatorToken(col, input[i].ToString()));
@@ -69,7 +70,7 @@ namespace Hulk.src
                     // Tokens: '&' , '|'
                     if (input[i] == '&' || input[i] == '|')
                         TokenList.Add(new LogicBooleanOperatorToken(col, input[i].ToString()));
-                    
+
                     // Token: '!'
                     else if (input[i] == '!' && (i == input.Length || input[i + 1] != '='))
                         TokenList.Add(new LogicBooleanOperatorToken(col, input[i].ToString()));
@@ -89,12 +90,23 @@ namespace Hulk.src
                 {
                     // Token especial EOL: ';' 
                     if (input[i] == ';')
+                    {
+                        // Añadir el token EOL
                         TokenList.Add(new EndOfLineToken(col));
-                    
+
+                        // Devolverlo al bucle foreach que lo llama desde el metodo Main en la clase Program
+                        yield return (List<TokenInterface>)TokenList;
+
+                        // Inicializar de nuevo las variables
+                        TokenList = new List<TokenInterface>();
+                        ErrorList = new List<CompilingError>();
+
+                    }
+
                     // Token de concatenacion de string: '@'
                     else if (input[i] == '@')
                         TokenList.Add(new SpecialOperatorToken(col, "@"));
-                    
+
                     // Tokens que contiene '='
                     else if (input[i] == '=')
                     {
@@ -131,11 +143,11 @@ namespace Hulk.src
                             preToken.Append("-");
 
                             // Comprobar el cararter anterior al '-' si es un numero o un identificador.
-                           
+
                             // En caso positivo cambiar '-' por '+'. Ejemplo 3 + (-3) o i + (-3)
                             if (TokenList.Count >= 2 && (TokenList[TokenList.Count - 2] is NumberToken or IdentifierToken || TokenList[TokenList.Count - 2].GetTokenValueAsString() == ")"))
                                 ((ArithmeticOperatorToken)TokenList[TokenList.Count - 1]).ChangeValue("+");
-                            
+
                             // En caso negativo eleminar '-' 
                             else
                                 TokenList.RemoveAt(TokenList.Count - 1);
@@ -237,7 +249,7 @@ namespace Hulk.src
                             break;
 
                         // Un token solo puede estar compuestos numeros, letras y los caracteres de operadores
-                        if (!char.IsLetterOrDigit(input[i] ))
+                        if (!char.IsLetterOrDigit(input[i]))
                             invalidToken = true;
 
                         preToken.Append(input[i]);
@@ -247,23 +259,23 @@ namespace Hulk.src
                     string preTokenSTR = preToken.ToString();
 
                     // Evaluar si es un token invalido
-                    if (invalidToken) 
+                    if (invalidToken)
                         AddLexicalErrorToList(col, $"Invalid token `{preTokenSTR}`");
 
                     // Evaluar si el token es una palabra clave: "if", "then", "else", "let", "in", "function"
                     else if (KeywordCharacters.Contains(preToken.ToString()))
-                        TokenList.Add(new KeywordToken(col,preTokenSTR));
-                    
+                        TokenList.Add(new KeywordToken(col, preTokenSTR));
+
                     // Evaluar si el token es un literal booleano
                     else if (preTokenSTR == "true" || preTokenSTR == "false")
-                        TokenList.Add(new BooleanToken(col ,bool.Parse(preTokenSTR)));
-                    
+                        TokenList.Add(new BooleanToken(col, bool.Parse(preTokenSTR)));
+
                     // Evaluar si el token es un literal constante.
                     else if (preTokenSTR == "PI")
                         TokenList.Add(new NumberToken(col, Math.PI));
                     else if (preTokenSTR == "E")
                         TokenList.Add(new NumberToken(col, Math.E));
-                    
+
                     // En caso contrario el token es un identificados
                     else
                         TokenList.Add(new IdentifierToken(col, preTokenSTR));
@@ -273,6 +285,10 @@ namespace Hulk.src
                 }
 
             }
-        }
+
+            yield return (List<TokenInterface>)TokenList;
+        } 
+        #endregion
+
     }
 }
