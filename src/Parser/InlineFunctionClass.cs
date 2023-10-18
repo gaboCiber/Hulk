@@ -205,7 +205,7 @@ namespace Hulk.src
         }
 
         public static TokenInterface EvaluateFunction(int col, string id)
-        {                 
+        {
             switch (Enum.Parse<Function>(id))
             {
                 case Function.sqrt:
@@ -243,7 +243,7 @@ namespace Hulk.src
             }
         }
 
-        public static bool EvaluateParams(LinkedList<TokenInterface>[]? paramsList, List<CompilingError> errorList)
+        public static bool EvaluateParams( TokenInterface function, LinkedList<TokenInterface>[]? paramsList, List<CompilingError> errorList)
         {
 
             if (paramsList is null)
@@ -258,6 +258,19 @@ namespace Hulk.src
                 {
                     errorList.AddRange(result.GetErrors());
                     return false;
+                }
+
+                switch (Enum.Parse<Function>(function.GetTokenValueAsString()))
+                {
+                    case Function.sqrt or Function.sin or Function.cos or Function.exp or Function.log:
+                        if (result.Output is not NumberToken)
+                        {
+                            errorList.Add(new CompilingError(ErrorType.Semantic, function.GetColumn(), $"The function `{function.GetTokenValueAsString()}` must receives a numeric expression in the parameter(s)"));
+                            return false;
+                        }
+                        break;
+                    default:
+                        break;
                 }
 
                 EvaluatedParamsList.Add(result.Output!);
