@@ -8,13 +8,13 @@ namespace Hulk.src
 {
     public enum TokenType { Number, String, Boolean, System }
 
-    public interface TokenInterface
+    public interface IToken
     {
         public string GetTokenValueAsString();
         public int GetColumn();
     }
 
-    public class Tokens<T>: TokenInterface
+    public class Tokens<T>: IToken
     {
         public virtual T? TokenValue { private set; get; }
         

@@ -11,10 +11,10 @@ namespace Hulk.src
     {
         #region Fields 
 
-        private LinkedList<TokenInterface> TokensLinkedList;
+        private LinkedList<IToken> TokensLinkedList;
 
-        private LinkedList<LinkedListNode<TokenInterface>[,]> IfElseLinkedList;
-        private Dictionary<LinkedListNode<TokenInterface>, LinkedListNode<TokenInterface>> ParenthesisDictionary;
+        private LinkedList<LinkedListNode<IToken>[,]> IfElseLinkedList;
+        private Dictionary<LinkedListNode<IToken>, LinkedListNode<IToken>> ParenthesisDictionary;
 
         private LetInClass LetInColletion;
         List<CompilingError> ErrorList;
@@ -23,7 +23,7 @@ namespace Hulk.src
 
         #region Properties
 
-        public TokenInterface? Output { private set; get; }
+        public IToken? Output { private set; get; }
         
         public bool IsThereAnyError { get { return ErrorList.Count != 0; } private set { } }
 
@@ -31,14 +31,14 @@ namespace Hulk.src
 
         #region Constructor
 
-        public Parser(List<TokenInterface> tokensList)
+        public Parser(List<IToken> tokensList)
         {
             // Inicializar los campos
-            TokensLinkedList = new LinkedList<TokenInterface>(tokensList);
+            TokensLinkedList = new LinkedList<IToken>(tokensList);
             ErrorList = new List<CompilingError>();
 
-            IfElseLinkedList = new LinkedList<LinkedListNode<TokenInterface>[,]>();
-            ParenthesisDictionary = new Dictionary<LinkedListNode<TokenInterface>, LinkedListNode<TokenInterface>>();
+            IfElseLinkedList = new LinkedList<LinkedListNode<IToken>[,]>();
+            ParenthesisDictionary = new Dictionary<LinkedListNode<IToken>, LinkedListNode<IToken>>();
 
             LetInColletion = new LetInClass();
 
@@ -61,13 +61,13 @@ namespace Hulk.src
         }
 
         // Metodo para buscar el index de un nodo especifico dentro de la Lista enlazable
-        private int SearchNumber(LinkedListNode<TokenInterface> token)
+        private int SearchIndex(LinkedListNode<IToken> token)
         {
             return (token is null) ? -1 : TokensLinkedList.ToList().IndexOf(token.Value);
         }
 
         // Metodo para buscar el partentesis de apertura dado su correspondiente parentesis de cierre
-        private LinkedListNode<TokenInterface>? SearchOpenParentesis(LinkedListNode<TokenInterface> closeParenthesis)
+        private LinkedListNode<IToken>? SearchOpenParentesis(LinkedListNode<IToken> closeParenthesis)
         {
             foreach (var item in ParenthesisDictionary)
             {
@@ -126,7 +126,7 @@ namespace Hulk.src
             CheckEndOfLineToken();
 
             // Comprobar si los parentesis estan balanceados
-            CheckParenthesis(new Stack<LinkedListNode<TokenInterface>>(), TokensLinkedList.First!);
+            CheckParenthesis(new Stack<LinkedListNode<IToken>>(), TokensLinkedList.First!);
             
             // Comprobar preliminarmente operadores perdidos entre tokens
             CheckMissingOperators(TokensLinkedList.First!);
@@ -146,7 +146,7 @@ namespace Hulk.src
                 }
             }
 
-            void CheckParenthesis(Stack<LinkedListNode<TokenInterface>> OpenParentesisStack, LinkedListNode<TokenInterface> currentToken)
+            void CheckParenthesis(Stack<LinkedListNode<IToken>> OpenParentesisStack, LinkedListNode<IToken> currentToken)
             {
                 // Salir del metodo
                 if (currentToken is null) // The current token supposed to be is ";"
@@ -170,7 +170,7 @@ namespace Hulk.src
                 else if (currentToken.Value.GetTokenValueAsString() == ")")
                 {
                     // Comprobar que en la pila haya algun parentesis de apertura
-                    LinkedListNode<TokenInterface> start;
+                    LinkedListNode<IToken> start;
                     if (OpenParentesisStack.TryPop(out start!))
                     {
                         ParenthesisDictionary.Add(start, currentToken);
@@ -185,7 +185,7 @@ namespace Hulk.src
                 CheckParenthesis(OpenParentesisStack, currentToken.Next!);
             }
 
-            void CheckMissingOperators(LinkedListNode<TokenInterface> currentToken)
+            void CheckMissingOperators(LinkedListNode<IToken> currentToken)
             {
                 // Salir del metodo
                 if (currentToken.Next is null)
@@ -206,7 +206,7 @@ namespace Hulk.src
         }
 
         // Comprobar si una funcion fue declarada correctamente
-        private int CheckInlineFunctionDeclaration(LinkedListNode<TokenInterface>? currentToken)
+        private int CheckInlineFunctionDeclaration(LinkedListNode<IToken>? currentToken)
         {
             // Salir del metodo
             if (currentToken!.Value is EndOfLineToken)
@@ -220,6 +220,19 @@ namespace Hulk.src
                 {
                     AddErrorToList(ErrorType.Semantic, currentToken.Value.GetColumn(), "Function declaration must be a sigle and only line");
                     return -1;
+                }
+
+                // Comprobar que se haya declarado una unica funcion
+                LinkedListNode<IToken>? token = currentToken.Next;
+                while (token!.Value is not EndOfLineToken)
+                {
+                    if (token.Value is KeywordToken && token.Value.GetTokenValueAsString() == "function")
+                    {
+                        AddErrorToList(ErrorType.Semantic, token.Value.GetColumn(), "Only one function can be declared per line");
+                        return -1;
+                    }
+
+                    token = token.Next;
                 }
 
                 currentToken = currentToken.Next;
@@ -313,7 +326,7 @@ namespace Hulk.src
                 }
                 
                 // Añadir los token que falta una lista, los cuales van a componer el cuerpo de la funcion
-                LinkedList<TokenInterface> body = new LinkedList<TokenInterface>();
+                LinkedList<IToken> body = new LinkedList<IToken>();
                 do
                 {
                     currentToken = currentToken.Next;
@@ -347,7 +360,7 @@ namespace Hulk.src
         }
 
         // Comprueba si una expresion `let-in` fue declarada correctamente. Y despues la evalua
-        private bool CheckAndEvaluateLetInExpression(LinkedListNode<TokenInterface>? currentToken)
+        private bool CheckAndEvaluateLetInExpression(LinkedListNode<IToken>? currentToken)
         {
             // Salir de la comprobracion
             if (currentToken!.Value is EndOfLineToken)
@@ -389,7 +402,7 @@ namespace Hulk.src
             if (currentToken.Value.GetTokenValueAsString() == ")")
             {
                 // Comprobar si el parentesis que lo abrio se encuentra antes de la declaracion de la expresion `let-in`
-                if (SearchNumber(SearchOpenParentesis(currentToken)!) < SearchNumber(LetInColletion.PeekLastLet()!))
+                if (SearchIndex(SearchOpenParentesis(currentToken)!) < SearchIndex(LetInColletion.PeekLastLet()!))
                 {
                     TokensLinkedList.Remove(LetInColletion.PeekLastLet()!);
                     LetInColletion.RemoveLastLet();
@@ -402,7 +415,7 @@ namespace Hulk.src
             #region Funcion local
 
             // Comprobar el lexico de la declaracion de una expresion `let-in`
-            bool CheckLetInExpression(LinkedListNode<TokenInterface>? currentToken, out LinkedListNode<TokenInterface>? actualToken)
+            bool CheckLetInExpression(LinkedListNode<IToken>? currentToken, out LinkedListNode<IToken>? actualToken)
             {
                 // Variable que guardara al final del metodo el token por donde se quedo la evaluacion 
                 actualToken = null;
@@ -436,12 +449,12 @@ namespace Hulk.src
                     Update();
 
                     // Crear una variable que guardara el resultado de la evaluacion de la expresion asociada con la variable
-                    TokenInterface? output;
+                    IToken? output;
 
                     // Si la evaluacion de la expresion asociada a la variable da falso, entonces ocurrio un error durandte la evaluacion
                     if (EvaluateLetVariable(out output))
                     {
-                        LetInColletion.AddVariableValue(variableName, new LinkedListNode<TokenInterface>(output));
+                        LetInColletion.AddVariableValue(variableName, new LinkedListNode<IToken>(output));
                     }
                     else
                     {
@@ -477,10 +490,10 @@ namespace Hulk.src
                 }
 
                 // Evaluar la expresion asociada a una variable
-                bool EvaluateLetVariable(out TokenInterface output)
+                bool EvaluateLetVariable(out IToken output)
                 {
                     // Crear una lista de tokens que guardaran la expresion asociada a la variable, la cual luego sera parseada
-                    List<TokenInterface> tokens = new List<TokenInterface>();
+                    List<IToken> tokens = new List<IToken>();
                     
                     string tokenValue;
 
@@ -507,7 +520,7 @@ namespace Hulk.src
                         if (currentToken.Value is SeparatorToken && currentToken.Value.GetTokenValueAsString() == "(")
                         {
                             // Directamente adicionar a la lista todos los tokens hasta el correspondiente `)`
-                            LinkedListNode<TokenInterface> closeParenthesis = ParenthesisDictionary[currentToken];
+                            LinkedListNode<IToken> closeParenthesis = ParenthesisDictionary[currentToken];
                             do
                             {
                                 Update();
@@ -572,7 +585,7 @@ namespace Hulk.src
         }
 
         // Comprueba si una expresion `if-else` esta declarada correctamente
-        private bool CheckIfElseExpression(LinkedListNode<TokenInterface>? currentToken, double actualIfPart, LinkedListNode<LinkedListNode<TokenInterface>[,]>? currentIf, LinkedListNode<LinkedListNode<TokenInterface>[,]>? sourceIf)
+        private bool CheckIfElseExpression(LinkedListNode<IToken>? currentToken, double actualIfPart, LinkedListNode<LinkedListNode<IToken>[,]>? currentIf, LinkedListNode<LinkedListNode<IToken>[,]>? sourceIf)
         {
             // TODO Crear una nueva estructura o clase para el if
 
@@ -637,7 +650,7 @@ namespace Hulk.src
                 }
 
                 // Adionar a la lista el nuevo `if` 
-                IfElseLinkedList.AddLast(new LinkedListNode<LinkedListNode<TokenInterface>[,]>(new LinkedListNode<TokenInterface>[4, 2]));
+                IfElseLinkedList.AddLast(new LinkedListNode<LinkedListNode<IToken>[,]>(new LinkedListNode<IToken>[4, 2]));
                 
                 // Establecer el `if` como actual
                 currentIf = IfElseLinkedList.Last!;
@@ -724,7 +737,7 @@ namespace Hulk.src
                     case ")":
 
                         // Buscar el parentesis de apertura correspondiente al cierre del token actual
-                        LinkedListNode<TokenInterface> openParenthesis = new LinkedListNode<TokenInterface>(new SeparatorToken(-1, "("));
+                        LinkedListNode<IToken> openParenthesis = new LinkedListNode<IToken>(new SeparatorToken(-1, "("));
                         foreach (var item in ParenthesisDictionary)
                         {
                             if (item.Value == currentToken)
@@ -735,7 +748,7 @@ namespace Hulk.src
                         }
 
                         // Comprobar que el parentesis de apertura se haya declarado antes que el `if` actual 
-                        if (SearchNumber(openParenthesis) < SearchNumber(currentIf!.Value[0, 0]))
+                        if (SearchIndex(openParenthesis) < SearchIndex(currentIf!.Value[0, 0]))
                         {
                             // Asignar los tokens de cierre tanto del `else` como del `if`
                             currentIf.Value[3, 1] = currentToken;
@@ -773,16 +786,16 @@ namespace Hulk.src
         }
 
         // Evaluador de expresiones
-        private bool ExpressionEvaluator(LinkedListNode<TokenInterface>? startToken, LinkedListNode<TokenInterface>? endToken)
+        private bool ExpressionEvaluator(LinkedListNode<IToken>? startToken, LinkedListNode<IToken>? endToken)
         {
             // Inicializar una serie de colas y pilas que guardaran los tokens de los operadores
-            Queue<LinkedListNode<TokenInterface>> SumRestOpetorStack = new Queue<LinkedListNode<TokenInterface>>();
-            Queue<LinkedListNode<TokenInterface>> MultDivOperatorStack = new Queue<LinkedListNode<TokenInterface>>();
-            Queue<LinkedListNode<TokenInterface>> PowOperatorStack = new Queue<LinkedListNode<TokenInterface>>();
-            Queue<LinkedListNode<TokenInterface>> LogicArimeticOperatorQueue = new Queue<LinkedListNode<TokenInterface>>();
-            Stack<LinkedListNode<TokenInterface>> NotOperatorStack = new Stack<LinkedListNode<TokenInterface>>();
-            Queue<LinkedListNode<TokenInterface>> LogicBooleanOperatorQueue = new Queue<LinkedListNode<TokenInterface>>();
-            Queue<LinkedListNode<TokenInterface>> ConcatenationOperatorQueue = new Queue<LinkedListNode<TokenInterface>>();
+            Queue<LinkedListNode<IToken>> SumRestOpetorStack = new Queue<LinkedListNode<IToken>>();
+            Queue<LinkedListNode<IToken>> MultDivOperatorStack = new Queue<LinkedListNode<IToken>>();
+            Queue<LinkedListNode<IToken>> PowOperatorStack = new Queue<LinkedListNode<IToken>>();
+            Queue<LinkedListNode<IToken>> LogicArimeticOperatorQueue = new Queue<LinkedListNode<IToken>>();
+            Stack<LinkedListNode<IToken>> NotOperatorStack = new Stack<LinkedListNode<IToken>>();
+            Queue<LinkedListNode<IToken>> LogicBooleanOperatorQueue = new Queue<LinkedListNode<IToken>>();
+            Queue<LinkedListNode<IToken>> ConcatenationOperatorQueue = new Queue<LinkedListNode<IToken>>();
 
             // Llenar las colas de los operadores y evuluar los parentesis, funciones y expresiones if-else
             if (!FillOperatorsQueueAndPreliminarEvaluation(startToken!, endToken!))
@@ -796,7 +809,7 @@ namespace Hulk.src
 
             #region Funciones locales 
             
-            bool FillOperatorsQueueAndPreliminarEvaluation(LinkedListNode<TokenInterface> currentToken, LinkedListNode<TokenInterface> finalToken)
+            bool FillOperatorsQueueAndPreliminarEvaluation(LinkedListNode<IToken> currentToken, LinkedListNode<IToken> finalToken)
             {
                 // Comprobar si el token actual el ultimo de la evaluacion
                 if (currentToken == finalToken || currentToken.Value is EndOfLineToken)
@@ -836,9 +849,19 @@ namespace Hulk.src
                             LogicBooleanOperatorQueue.Enqueue(currentToken);
                     }
 
-                    else if (currentToken.Value is SpecialOperatorToken && currentToken.Value.GetTokenValueAsString() == "@")
+                    else if (currentToken.Value is SpecialOperatorToken)
                     {
-                        ConcatenationOperatorQueue.Enqueue(currentToken);
+                        switch (currentToken.Value.GetTokenValueAsString())
+                        {
+                            case "=>":
+                                AddErrorToList(ErrorType.Syntax, currentToken.Value.GetColumn(), "The operator `=>` can only be used for function declaration");
+                                return false;
+                            case "@":
+                                ConcatenationOperatorQueue.Enqueue(currentToken);
+                                break;
+                            default:
+                                break;
+                        }
                     }
 
                 }
@@ -854,7 +877,7 @@ namespace Hulk.src
                     }
 
                     // Comprobar que el parentesis de cierre no salga fuera de los limetes de la evaluacion
-                    if (SearchNumber(ParenthesisDictionary[currentToken]) > SearchNumber(finalToken))
+                    if (SearchIndex(ParenthesisDictionary[currentToken]) > SearchIndex(finalToken))
                     {
                         AddErrorToList(ErrorType.Semantic, currentToken.Value.GetColumn(), $" The close parenthesis `)` is outside the limits of evaluation");
                         return false;
@@ -903,21 +926,21 @@ namespace Hulk.src
                             }
 
                             // Evaluar y guardar en una variable la parte `body` del `if`
-                            LinkedListNode<TokenInterface>? bodyResult;
+                            LinkedListNode<IToken>? bodyResult;
                             if (!ExpressionEvaluator(ifToken[2, 0], ifToken[2, 1]))
                                 return false;
 
                             bodyResult = ifToken[3, 0].Previous!.Previous;
 
                             // Evaluar y guardar en una variable la parte `else` del `if`
-                            LinkedListNode<TokenInterface>? elseResult;
+                            LinkedListNode<IToken>? elseResult;
                             if (!ExpressionEvaluator(ifToken[3, 0], ifToken[3, 1]))
                                 return false;
 
                             elseResult = ifToken[0, 1].Previous;
 
                             // Crear una variable que guarde el resultado de la evaluacion del `if` completo
-                            LinkedListNode<TokenInterface>? ifResult = ((((BooleanToken)ifToken[1, 0].Next!.Value).TokenValue)) ? bodyResult : elseResult;
+                            LinkedListNode<IToken>? ifResult = ((((BooleanToken)ifToken[1, 0].Next!.Value).TokenValue)) ? bodyResult : elseResult;
 
                             // Eliminar los token relacionados con el `if` que faltan y quedarse solo con el resultado de la evaluacion
                             while (true)
@@ -961,7 +984,7 @@ namespace Hulk.src
                 bool EvaluateInleneFunction()
                 {
                     // Guardar el id y referencia de la funcion
-                    TokenInterface function = currentToken.Value;
+                    IToken function = currentToken.Value;
                     string id = currentToken.Value.GetTokenValueAsString();
                     bool builtInFunction = false;
 
@@ -986,7 +1009,7 @@ namespace Hulk.src
                     }
 
                     // Guardar una referencia del parenteis de cierre
-                    LinkedListNode<TokenInterface> closeParenthesis = ParenthesisDictionary[currentToken];
+                    LinkedListNode<IToken> closeParenthesis = ParenthesisDictionary[currentToken];
 
                     Update();
 
@@ -994,7 +1017,7 @@ namespace Hulk.src
                     int maxParams = (builtInFunction) ? BuiltInFunctionClass.NumberOfParameters(id) : InlineFunctionClass.NumberOfParameters(id);
 
                     // Crear una lista de tokens para los parametros 
-                    LinkedList<TokenInterface>[]? paramsList;
+                    LinkedList<IToken>[]? paramsList;
 
                     // Comprobar si la funcion no posee parametros
                     if ((maxParams == 0 && currentToken != closeParenthesis) || (maxParams != 0 && currentToken == closeParenthesis))
@@ -1008,7 +1031,7 @@ namespace Hulk.src
                     else
                     {
                         // Inicaliar la lista
-                        paramsList = new LinkedList<TokenInterface>[maxParams];
+                        paramsList = new LinkedList<IToken>[maxParams];
                         int index = 0;
 
                         // Obtener los parametros
@@ -1020,7 +1043,7 @@ namespace Hulk.src
 
                             // Inicializar una nueva instacia de la lista con respecto a una posicion 
                             if (paramsList[index] is null)
-                                paramsList[index] = new LinkedList<TokenInterface>();
+                                paramsList[index] = new LinkedList<IToken>();
 
                             // Salir del bucle si se encuetra con el cierre de apertura (funcion llamanda exitosamente) o en EOL (funcion mal llamada)
                             if (currentToken == closeParenthesis || currentToken.Value is EndOfLineToken)
@@ -1077,7 +1100,7 @@ namespace Hulk.src
                             return false;
                         }
 
-                        TokenInterface? output;
+                        IToken? output;
                         if (!InlineFunctionClass.EvaluateFunction(id, ErrorList, out output))
                         {
                             return false;
@@ -1130,7 +1153,7 @@ namespace Hulk.src
 
             }
 
-            bool OperatorsEvaluator(LinkedListNode<TokenInterface> operador)
+            bool OperatorsEvaluator(LinkedListNode<IToken> operador)
             {
                 // Comprobar que tipo de operador es el token
                 if (operador.Value is ArithmeticOperatorToken)
@@ -1171,7 +1194,7 @@ namespace Hulk.src
                     }
 
                     // Adicionar a la lista el resultado
-                    TokensLinkedList.AddAfter(operador.Next, new LinkedListNode<TokenInterface>(new NumberToken(operador.Previous!.Value.GetColumn(), result)));
+                    TokensLinkedList.AddAfter(operador.Next, new LinkedListNode<IToken>(new NumberToken(operador.Previous!.Value.GetColumn(), result)));
                 }
                 else if (operador.Value is LogicArimeticOperatorToken)
                 {
@@ -1234,7 +1257,7 @@ namespace Hulk.src
                     }
 
                     // Adicionar a la lista el resultado
-                    TokensLinkedList.AddAfter(operador.Next, new LinkedListNode<TokenInterface>(new BooleanToken(operador.Previous!.Value.GetColumn(), result)));
+                    TokensLinkedList.AddAfter(operador.Next, new LinkedListNode<IToken>(new BooleanToken(operador.Previous!.Value.GetColumn(), result)));
                 }
                 else if (operador.Value is LogicBooleanOperatorToken)
                 {
@@ -1259,7 +1282,7 @@ namespace Hulk.src
                             break;
                         case "!":
                             // Como el operador `!` no necesita de un operador izquierdo, se crea uno nuevo como mascara
-                            TokensLinkedList.AddBefore(operador, new LinkedListNode<TokenInterface>(new BooleanToken(-1, true)));
+                            TokensLinkedList.AddBefore(operador, new LinkedListNode<IToken>(new BooleanToken(-1, true)));
                             result = !rightOperand;
                             break;
                         default:
@@ -1267,7 +1290,7 @@ namespace Hulk.src
                     }
 
                     // Adiconar a la lista el resultado
-                    TokensLinkedList.AddAfter(operador.Next, new LinkedListNode<TokenInterface>(new BooleanToken(operador.Previous!.Value.GetColumn(), result)));
+                    TokensLinkedList.AddAfter(operador.Next, new LinkedListNode<IToken>(new BooleanToken(operador.Previous!.Value.GetColumn(), result)));
                 }
                 else if (operador.Value is SpecialOperatorToken && operador.Value.GetTokenValueAsString() == "@")
                 {
@@ -1300,7 +1323,7 @@ namespace Hulk.src
                 return true;
                 
                 // Comprobar los operandos de un token aritmetico
-                bool CheckPreviusAndNextArimeticToken(LinkedListNode<TokenInterface> operador, out bool stringComparer)
+                bool CheckPreviusAndNextArimeticToken(LinkedListNode<IToken> operador, out bool stringComparer)
                 {
                     // Comprobar que sea una comparacion entre strings
                     stringComparer = false;
@@ -1348,7 +1371,7 @@ namespace Hulk.src
                     return true;
                 }
 
-                bool CheckPreviusAndNextLogicToken(LinkedListNode<TokenInterface> operador, out bool IsNotOperator)
+                bool CheckPreviusAndNextLogicToken(LinkedListNode<IToken> operador, out bool IsNotOperator)
                 {
                     // Comprobar que el operado sea not `!` para no comprobar la parte izquierda
                     if (operador.Value.GetTokenValueAsString() == "!")
@@ -1373,7 +1396,7 @@ namespace Hulk.src
                     return true;
                 }
 
-                bool CheckPreviusAndNextConcatenationToken(LinkedListNode<TokenInterface> operador)
+                bool CheckPreviusAndNextConcatenationToken(LinkedListNode<IToken> operador)
                 {
                     // Comprobar que los operando no sean de tipo null o del sistema
                     if (operador.Previous!.Value is null or SystemToken || operador.Next!.Value is null or SystemToken)

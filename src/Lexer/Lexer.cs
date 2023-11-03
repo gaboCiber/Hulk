@@ -15,7 +15,7 @@ namespace Hulk.src
         List<string> KeywordCharacters = new List<string>(new string[] { "if", "then", "else", "let", "in", "function" });
 
         // Lista de tokens
-        List<TokenInterface> TokenList;
+        List<IToken> TokenList;
 
         // Lista de errores lexicos
         List<CompilingError> ErrorList;
@@ -24,7 +24,7 @@ namespace Hulk.src
         public Lexer()
         {
             // Inicializar los campos 
-            TokenList = new List<TokenInterface>();
+            TokenList = new List<IToken>();
             ErrorList = new List<CompilingError>();
         }
 
@@ -46,7 +46,7 @@ namespace Hulk.src
 
         // Metodo que convierte el texto de input en una lista de tokens
 
-        public IEnumerable<List<TokenInterface>> CreateTokens(string input)
+        public IEnumerable<List<IToken>> CreateTokens(string input)
         {
             // Crear una variable para guardar un posible tokens
             StringBuilder preToken = new StringBuilder();
@@ -95,10 +95,10 @@ namespace Hulk.src
                         TokenList.Add(new EndOfLineToken(col));
 
                         // Devolverlo al bucle foreach que lo llama desde el metodo Main en la clase Program
-                        yield return (List<TokenInterface>)TokenList;
+                        yield return (List<IToken>)TokenList;
 
                         // Inicializar de nuevo las variables
-                        TokenList = new List<TokenInterface>();
+                        TokenList = new List<IToken>();
                         ErrorList = new List<CompilingError>();
 
                     }
@@ -286,7 +286,7 @@ namespace Hulk.src
 
             }
 
-            yield return (List<TokenInterface>)TokenList;
+            yield return (List<IToken>)TokenList;
         } 
         #endregion
 
