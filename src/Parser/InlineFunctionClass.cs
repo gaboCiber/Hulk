@@ -280,19 +280,18 @@ namespace Hulk.src
                 case Function.rand:
                     return new NumberToken(col, new Random().NextDouble());
                 case Function.print:
+
+                    Console.ForegroundColor = ConsoleColor.Magenta;
+
                     if (EvaluatedParamsList[0] is EndOfLineToken) // Imprir una lina vacia si la funcion print no recibio parametros
                         Console.WriteLine();
+                    else if (EvaluatedParamsList[0] is StringToken)
+                        Console.WriteLine(((StringToken)EvaluatedParamsList[0]).StringValue);
                     else
-                    {
-                        Console.ForegroundColor = ConsoleColor.Magenta;
+                        Console.WriteLine(EvaluatedParamsList[0].ToString()!);
 
-                        if (EvaluatedParamsList[0] is StringToken)
-                            Console.WriteLine(((StringToken)EvaluatedParamsList[0]).StringValue);
-                        else
-                            Console.WriteLine(EvaluatedParamsList[0].GetTokenValueAsString());
+                    Console.ForegroundColor = ConsoleColor.White;
 
-                        Console.ForegroundColor = ConsoleColor.White;
-                    }
                     return EvaluatedParamsList[0];
                 case Function.exit:
                     Environment.Exit(0);

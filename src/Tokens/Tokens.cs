@@ -48,6 +48,11 @@ namespace Hulk.src
         {
             return Column;
         }
+
+        public Type GetDataType()
+        {
+            return typeof(T);
+        }
     }
 
 }

@@ -1,6 +1,6 @@
 ﻿namespace Hulk.src
 {
-    public enum SystemType { Identifier, Keyword, Separator, Operator, LogicOperator, EndOfLine }
+    public enum SystemType { Identifier, Keyword, Separator, Operator, EndOfLine }
 
     internal class SystemToken : Tokens<string>
     {
