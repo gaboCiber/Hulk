@@ -789,12 +789,11 @@ namespace Hulk.src
         private bool ExpressionEvaluator(LinkedListNode<IToken>? startToken, LinkedListNode<IToken>? endToken)
         {
             // Inicializar una serie de colas y pilas que guardaran los tokens de los operadores
-            Queue<LinkedListNode<IToken>> SumRestOpetorStack = new Queue<LinkedListNode<IToken>>();
+            LinkedList<LinkedListNode<IToken>> SumRestOpetorStack = new LinkedList<LinkedListNode<IToken>>();
             Queue<LinkedListNode<IToken>> MultDivOperatorStack = new Queue<LinkedListNode<IToken>>();
             Queue<LinkedListNode<IToken>> PowOperatorStack = new Queue<LinkedListNode<IToken>>();
             Queue<LinkedListNode<IToken>> LogicArimeticOperatorQueue = new Queue<LinkedListNode<IToken>>();
             LinkedList<LinkedListNode<IToken>> NotOperatorStack = new LinkedList<LinkedListNode<IToken>>();
-            //Stack<LinkedListNode<IToken>> NotOperatorStack = new Stack<LinkedListNode<IToken>>();
             Queue<LinkedListNode<IToken>> LogicBooleanOperatorQueue = new Queue<LinkedListNode<IToken>>();
             Queue<LinkedListNode<IToken>> ConcatenationOperatorQueue = new Queue<LinkedListNode<IToken>>();
 
@@ -825,7 +824,7 @@ namespace Hulk.src
                         switch (currentToken.Value.GetTokenValueAsString())
                         {
                             case "+" or "-":
-                                SumRestOpetorStack.Enqueue(currentToken);
+                                SumRestOpetorStack.AddLast(currentToken);
                                 break;
                             case "*" or "/" or "%":
                                 MultDivOperatorStack.Enqueue(currentToken);
@@ -1172,7 +1171,13 @@ namespace Hulk.src
                     return OperatorsEvaluator(MultDivOperatorStack.Dequeue()) ? ArimeticAndLogicEvaluator() : false;
 
                 if (SumRestOpetorStack.Count != 0)
-                    return OperatorsEvaluator(SumRestOpetorStack.Dequeue()) ? ArimeticAndLogicEvaluator() : false;
+                {
+                    if (!OperatorsEvaluator(SumRestOpetorStack.First()))
+                        return false;
+
+                    SumRestOpetorStack.RemoveFirst();
+                    return ArimeticAndLogicEvaluator();
+                }
 
                 if (ConcatenationOperatorQueue.Count != 0)
                     return OperatorsEvaluator(ConcatenationOperatorQueue.Dequeue()) ? ArimeticAndLogicEvaluator() : false;
@@ -1186,8 +1191,9 @@ namespace Hulk.src
                         return false;
 
                     NotOperatorStack.RemoveLast();
-                    ArimeticAndLogicEvaluator();
+                    return ArimeticAndLogicEvaluator();
                 }
+                
                 if (LogicBooleanOperatorQueue.Count != 0)
                     return OperatorsEvaluator(LogicBooleanOperatorQueue.Dequeue()) ? ArimeticAndLogicEvaluator() : false;
 
@@ -1395,7 +1401,7 @@ namespace Hulk.src
                             return true;
                         }
 
-                        AddErrorToList(ErrorType.Syntax, operador.Value.GetColumn(), $"Expected expression before operator `{operador.Value.GetTokenValueAsString()}`");
+                        AddErrorToList(ErrorType.Syntax, operador.Value.GetColumn(), $"Expected number expression before operator `{operador.Value.GetTokenValueAsString()}`");
                         return false;
                     }
 
@@ -1410,9 +1416,24 @@ namespace Hulk.src
                                 return true;
                             }
                         }
+                        else if(operador.Next.Value.GetTokenValueAsString() == "-" && (operador.Next.Next is not null && operador.Next.Next.Value is NumberToken))
+                        {
+                            SumRestOpetorStack.Remove(operador.Next);
+                            TokensLinkedList.Remove(operador.Next);
+                            NumberToken newValue = new NumberToken(operador.Next.Value.GetColumn(), -((NumberToken)operador.Next.Value).TokenValue);
+                            TokensLinkedList.AddAfter(operador.Next, new LinkedListNode<IToken>(newValue));
+                            TokensLinkedList.Remove(operador.Next);
+                            return true;
+                        }
                         else   
-                            AddErrorToList(ErrorType.Semantic, operador.Value.GetColumn(), $"Expected expression after operator  `{operador.Value.GetTokenValueAsString()}`");
+                            AddErrorToList(ErrorType.Semantic, operador.Value.GetColumn(), $"Expected number expression after operator  `{operador.Value.GetTokenValueAsString()}`");
                         
+                        return false;
+                    }
+
+                    if( (operador.Value.GetTokenValueAsString() != "==" && operador.Value.GetTokenValueAsString() != "!=") && (operador.Previous.Value is not NumberToken || operador.Next.Value is not NumberToken))
+                    {
+                        AddErrorToList(ErrorType.Syntax, operador.Value.GetColumn(), $"Expected number expression before and after operator `{operador.Value.GetTokenValueAsString()}`");
                         return false;
                     }
 
