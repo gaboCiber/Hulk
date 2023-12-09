@@ -1085,6 +1085,15 @@ namespace Hulk.src
                             if (currentToken == closeParenthesis || currentToken.Value is EndOfLineToken)
                                 break;
 
+                            
+                            if(currentToken.Value is IdentifierToken && 
+                                (InlineFunctionClass.ExistFunction(currentToken.Value.GetTokenValueAsString()) ||
+                                BuiltInFunctionClass.IsBuilInFunction(currentToken.Value.GetTokenValueAsString()) ) )
+                            {
+                                if(!EvaluateInleneFunction())
+                                    return false;
+                            }
+                            
                             // Comprobar si exiten mas parametrsos
                             if (currentToken.Value is SeparatorToken && currentToken.Value.GetTokenValueAsString() == ",")
                             {
